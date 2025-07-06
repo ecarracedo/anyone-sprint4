@@ -143,13 +143,17 @@ class FoundationalCVModel:
         # Aditionally, the output of the model is different in both cases, we need to get the pooling of the output layer.
         
         # If is a model from transformers:
-        if backbone in ['vit_base', 'vit_large', 'convnextv2_tiny', 'convnextv2_base', 'convnextv2_large', 'swin_tiny', 'swin_small', 'swin_base']:
+        if backbone in ['vit_base', 'vit_large', 'convnextv2_tiny', 'convnextv2_base', 
+                        'convnextv2_large', 'swin_tiny', 'swin_small', 'swin_base']:
             # TODO: Adjust the input for channels first models within the model
             # You can use the perm argument of tf.transpose to permute the dimensions of the input tensor
-            input_layer_transposed = None
+            transpose = tf.keras.layers.Lambda(lambda z: tf.transpose(z, perm=[0, 3, 1, 2]))
+            input_layer_transposed = transpose(input_layer)
+
             # TODO: Get the pooling output of the model "pooler_output"
-            outputs = None
-        # If is a model from keras.applications:
+            pooling = tf.keras.layers.Lambda(lambda z: self.base_model(z).pooler_output)
+            outputs = pooling(input_layer_transposed)
+            # If is a model from keras.applications:
         else:
             # TODO: Get the pooling output of the model
             # In this case the pooling layer is not included in the model, we can use a pooling layer such as GlobalAveragePooling2D

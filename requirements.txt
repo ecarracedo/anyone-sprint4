@@ -6,7 +6,7 @@ matplotlib==3.4.2
 seaborn==0.13.2
 plotly==5.23.0
 pytest==8.3.3
-scikit-learn==0.24.2
+scikit-learn
 torch==2.0.0
 tensorflow==2.10.0
 transformers==4.44.2

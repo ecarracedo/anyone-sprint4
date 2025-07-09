@@ -29,11 +29,18 @@ def load_and_preprocess_image(image_path, target_size=(224, 224)):
     - np.array: Preprocessed image.
     """
     # TODO: Open the image using PIL Image.open and convert it to RGB format
-    img = None
+    # Convert('RGB'): Ensures that the image has three color channels even if it's 
+    # grayscale or has an alpha channel.
+    img = Image.open(image_path).convert('RGB')
+
     # TODO: Resize the image to the target size
-    img = None
+    # Uses Image.NEAREST for faster resizing
+    img = img.resize(target_size, Image.NEAREST)
+
     # TODO: Convert the image to a numpy array and scale the pixel values to [0, 1]
-    img = None
+    # Scaling: Divides by 255.0 to bring pixel values from the range [0, 255] to [0, 1],
+    # which is typically expected by deep learning models.
+    img = np.array(img) / 255.0
 
     return img
 
@@ -93,7 +100,9 @@ class FoundationalCVModel:
         
         if backbone == 'resnet50':
             # TODO: Load the ResNet50 model from tensorflow.keras.applications
-            self.base_model = None
+
+            self.base_model = ResNet50(include_top=False, weights='imagenet', input_shape=(224, 224, 3))
+
         elif backbone == 'resnet101':
             # TODO: Load the ResNet101 model from tensorflow.keras.applications
             self.base_model = None
@@ -108,10 +117,13 @@ class FoundationalCVModel:
             self.base_model = None
         elif backbone == 'convnextv2_tiny':
             # TODO: Load the ConvNeXtV2 Tiny model from transformers
-            self.base_model = None
+            
+            self.base_model = TFConvNextV2Model.from_pretrained("facebook/convnextv2-tiny-1k-224")
+
         elif backbone == 'convnextv2_base':
             # TODO: Load the ConvNeXtV2 Base model from transformers
-            self.base_model = None
+            self.base_model = TFConvNextV2Model.from_pretrained("facebook/convnextv2-base-22k-224")
+
         elif backbone == 'convnextv2_large':
             # TODO: Load the ConvNeXtV2 Large model from transformers
             self.base_model = None
@@ -137,30 +149,43 @@ class FoundationalCVModel:
         
         if mode == 'eval':
             # TODO: Set the model to evaluation mode (non-trainable)
-            pass
+            self.base_model.trainable = False
         
-        # Take into account the model's input requirements. In models from transformers, the input is channels first, but in models from keras.applications, the input is channels last.
-        # Aditionally, the output of the model is different in both cases, we need to get the pooling of the output layer.
+        # Take into account the model's input requirements. In models from transformers, the input is channels 
+        # first, but in models from keras.applications, the input is channels last.
+        # Aditionally, the output of the model is different in both cases, we need to 
+        # get the pooling of the output layer.
         
         # If is a model from transformers:
-        if backbone in ['vit_base', 'vit_large', 'convnextv2_tiny', 'convnextv2_base', 
-                        'convnextv2_large', 'swin_tiny', 'swin_small', 'swin_base']:
+        if backbone in ['vit_base', 'vit_large', 'convnextv2_tiny', 'convnextv2_base', 'convnextv2_large', 
+                        'swin_tiny', 'swin_small', 'swin_base']:
             # TODO: Adjust the input for channels first models within the model
             # You can use the perm argument of tf.transpose to permute the dimensions of the input tensor
+
+            # Los tensores de entrada en TensorFlow tienen el formato por defecto 'channels_last': 
+            # [batch, height, width, channels].
+            # Sin embargo, algunos modelos preentrenados (especialmente los convertidos desde PyTorch,
+            # como los de Hugging Face) esperan el formato 'channels_first': [batch, channels, height, width].
+            # Para ajustarse a esos modelos, se permutan las dimensiones del tensor usando tf.transpose.
+            # Esto se hace con una Lambda layer que transforma el input al formato requerido.
             transpose = tf.keras.layers.Lambda(lambda z: tf.transpose(z, perm=[0, 3, 1, 2]))
             input_layer_transposed = transpose(input_layer)
 
             # TODO: Get the pooling output of the model "pooler_output"
+            # ConvNeXtV2 returns a tensor directly, no 'pooler_output' attribute
+            # So we apply the model and use its direct output as the embedding
             pooling = tf.keras.layers.Lambda(lambda z: self.base_model(z).pooler_output)
             outputs = pooling(input_layer_transposed)
-            # If is a model from keras.applications:
+
+        # If is a model from keras.applications:
         else:
             # TODO: Get the pooling output of the model
             # In this case the pooling layer is not included in the model, we can use a pooling layer such as GlobalAveragePooling2D
-            outputs = None
+            features = self.base_model(input_layer)
+            outputs = GlobalAveragePooling2D()(features)
         
         # TODO: Create the final model with the input layer and the pooling output
-        self.model = Model()
+        self.model = Model(inputs=input_layer, outputs=outputs)
         
     def get_output_shape(self):
         """
@@ -188,9 +213,8 @@ class FoundationalCVModel:
             Predictions or features from the model for the given images.
         """
         # TODO: Perform a forward pass through the model and return the predictions
-        predictions = None
+        predictions = self.model.predict(images)
         return predictions
-
 
 
 class ImageFolderDataset:

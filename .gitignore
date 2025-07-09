@@ -1,4 +1,7 @@
 data/images
-src/__pycache__
-.env/
+data/images2
+__pycache__
+.vscode
+.env
 .pyc
+.pytest_cache

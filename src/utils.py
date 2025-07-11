@@ -5,6 +5,7 @@ from PIL import Image
 import requests
 from io import BytesIO
 from sklearn.model_selection import train_test_split
+import tqdm
 
 import warnings
 # Suppress all warnings
@@ -93,7 +94,7 @@ def preprocess_data(text_data, image_data, text_id="image_id", image_id="ImageNa
     text_data = text_data.dropna(subset=[text_id])
 
     text_data[text_id] = text_data[text_id].apply(lambda x: x.split('/')[-1])
-    
+    tqdm.panda()
     # Merge dataframes using image_id
     df = pd.merge(text_data, image_data, left_on=text_id, right_on=image_id)
 
@@ -194,17 +195,19 @@ def train_test_split_and_feature_extraction(df, test_size=0.3, random_state=42):
 
     # Split the data:
     # TODO: Split the data into train and test sets setting using the test_size and random_state parameters
-    train_df, test_df = None, None
-
+    train_df, test_df = train_test_split(df, test_size=test_size, random_state=random_state)
     # Select features and labels vectors:
     # Features
     # TODO: Select the name of the columns with the text embeddings and return it as a list (Even if there is only one column)
     # Make sure to select only the columns that are actually text embeddings, that means text_1, text_2, etc.
-    text_columns = [None]
+    text_columns = [col for col in df.columns if col.startswith('text_')]
+
     # TODO: Select the name of the columns with the image embeddings and return it as a list (Even if there is only one column)
     # Make sure to select only the columns that are actually image embeddings, that means image_1, image_2, etc.
-    image_columns = [None]
+    image_columns = [col for col in df.columns if col.startswith('image_')]
+
     # TODO: Select the name of the column with the class labels and return it as a list (Even if there is only one column)
-    label_columns = [None]
+    label_columns = [col for col in df.columns if col.startswith('class_')]
+
 
     return train_df, test_df, text_columns, image_columns, label_columns

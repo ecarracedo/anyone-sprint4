@@ -2,11 +2,13 @@
 ## Setup
 #### Load the API key and libaries.
 import os
-
+from tqdm import tqdm
 import pandas as pd
 import numpy as np
 
 from transformers import AutoTokenizer, AutoModel
+
+
 import torch
 
 # Create a class to handle the GPT API
@@ -55,7 +57,7 @@ class GPT:
         # TODO: Load the OpenAI API key from the .env file
         _ = load_dotenv(find_dotenv()) # read local .env file
         # TODO: Set the OpenAI API key
-        openai.api_key  = None
+        openai.api_key  = os.getenv("OPENAI_API_KEY")
 
         self.path = path
         self.embedding_model = embedding_model
@@ -97,7 +99,7 @@ class GPT:
         df = pd.read_csv(self.path)
         # TODO: Generate embeddings in a new column 'embeddings', for the specified column using the `get_embedding` method
         # You can use a lambda function to apply the `get_embedding` method to each row in the column
-        df["embeddings"] = None
+        df["embeddings"] = df["embeddings"] = df[column].apply(lambda x: self.get_embedding(x).tolist())
 
         os.makedirs(directory, exist_ok=True) 
         # TODO: Save the DataFrame with the embeddings to a new CSV file in the specified directory
@@ -146,7 +148,7 @@ class HuggingFaceEmbeddings:
         - The input text will be truncated and padded to a maximum length of 512 tokens to fit into the model.
     """
     
-    def __init__(self, model_name='sentence-transformers/all-MiniLM-L6-v2', path='data/file.csv', save_path=None, device=None):
+    def __init__(self, model_name='bert-base-uncased', path='data/processed_products_with_images.csv', save_path=None, device=None):
         """
         Initializes the HuggingFaceEmbeddings class with the specified model and paths.
 
@@ -158,9 +160,9 @@ class HuggingFaceEmbeddings:
         """
         self.model_name = model_name
         # TODO: Load the Hugging Face tokenizer from a pre-trained model
-        self.tokenizer = None
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         # TODO: Load the model from the Hugging Face model hub from the specified model name
-        self.model = None
+        self.model = AutoModel.from_pretrained(self.model_name)
         self.path = path
         self.save_path = save_path or 'Models'
         
@@ -188,31 +190,36 @@ class HuggingFaceEmbeddings:
             np.ndarray: A numpy array containing the embedding vector for the input text.
         """
         ### TODO: Tokenize the input text using the Hugging Face tokenizer
-        inputs = None
+        inputs = self.tokenizer(text, return_tensors="pt", truncation=True, padding=True)
         
         # Move the inputs to the device
-        inputs = {key: value.to(self.device) for key, value in inputs.items()}
+        inputs = {k: v.to(self.device) for k, v in inputs.items()}
         
         with torch.no_grad():
             # TODO: Generate the embeddings using the Hugging Face model from the tokenized input
-            outputs = None
+            outputs = self.model(**inputs)
         
         # TODO: Extract the embeddings from the model output, send to cpu and return the numpy array
         # Remember that the model will return embeddings for the whole sequence, so you may need to aggregate them
         # Get the last hidden state and take the mean across the sequence dimension
         # The resulting tensor should have shape [batch_size, hidden_size]
-        embeddings = None
-        
-        return embeddings
+            last_hidden_state = outputs.last_hidden_state
+            embedding = last_hidden_state.mean(dim=1)  # → [batch_size, hidden_size]
+        return embedding.squeeze(0).cpu().numpy()
 
     def get_embedding_df(self, column, directory, file):
         # Load the CSV file
         df = pd.read_csv(self.path)
+        print(self.path)
         # TODO: Generate embeddings for the specified column using the `get_embedding` method
         # Make sure to convert the embeddings to a list before saving to the DataFrame
-        df["embeddings"] = None
-        
-        os.makedirs(directory, exist_ok=True)
-        # TODO: Save the DataFrame with the embeddings to a new CSV file in the specified directory
-        
+        tqdm.pandas()
+        df["embeddings"] = df[column].progress_apply(lambda x: self.get_embedding(x).tolist())
 
+        
+        # TODO: Save the DataFrame with the embeddings to a new CSV file in the specified directory
+        os.makedirs(directory, exist_ok=True)
+        output_path = os.path.join(directory, file)
+        df.to_csv(output_path, index=False)
+
+        print(f"Embeddings saved to {output_path}")

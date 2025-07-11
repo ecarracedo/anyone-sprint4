@@ -1,6 +1,6 @@
 data/images
 data/images2
-Embeddings
+Embeddings/
 __pycache__
 .vscode
 .env

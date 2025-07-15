@@ -56,6 +56,7 @@ def visualize_embeddings(X_train, X_test, y_train, y_test, plot_type='2D', metho
     perplexity = 10
 
     if plot_type == '3D':
+        #fig.update_layout(scene=dict())
         if method == 'PCA':
 
             # TODO: Create an instance of PCA for 3D visualization and fit it on the training data
@@ -68,7 +69,7 @@ def visualize_embeddings(X_train, X_test, y_train, y_test, plot_type='2D', metho
         elif method == 't-SNE':
 
             # TODO: Implement t-SNE for 3D visualization
-            red = TSNE(n_components=3, perplexity=30, random_state=42)
+            red = TSNE(n_components=3, perplexity=perplexity, random_state=42)
 
             # TODO: Use the model to train and transform the test data
             reduced_embeddings = red.fit_transform(X_test)  # Aplicamos t-SNE a X_test
@@ -77,7 +78,7 @@ def visualize_embeddings(X_train, X_test, y_train, y_test, plot_type='2D', metho
         
             
         df_reduced = pd.DataFrame(reduced_embeddings, columns=['col1', 'col2', 'col3'])
-        df_reduced['Class'] = y_test
+        df_reduced['Class'] = y_test.astype(str)
 
         # 3D scatter plot
         fig = px.scatter_3d(df_reduced, x='col1', y='col2', z='col3', color='Class', title='3D')
@@ -102,7 +103,7 @@ def visualize_embeddings(X_train, X_test, y_train, y_test, plot_type='2D', metho
             raise ValueError("Invalid method. Please choose either 'PCA' or 't-SNE'.")
         
         df_reduced = pd.DataFrame(reduced_embeddings, columns=['col1', 'col2'])
-        df_reduced['Class'] = y_test
+        df_reduced['Class'] = y_test.astype(str)
 
         # 2D scatter plot
         fig = px.scatter(df_reduced, x='col1', y='col2', color='Class', title='2D')
@@ -202,7 +203,6 @@ def test_model(X_test, y_test, model):
     return accuracy, precision, recall, f1
 
 
-
 def train_and_evaluate_model(X_train, X_test, y_train, y_test, models=None, test=True):
     """
     Trains and evaluates multiple machine learning models on a given dataset, then 
@@ -238,6 +238,7 @@ def train_and_evaluate_model(X_train, X_test, y_train, y_test, models=None, test
     """
     
     visualize_embeddings(X_train, X_test, y_train, y_test, plot_type='2D', method='PCA')
+
     
     if not(models):
         # TODO: Implement the ML models

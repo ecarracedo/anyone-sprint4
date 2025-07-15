@@ -78,14 +78,14 @@ class MultimodalDataset(Sequence):
         """
         if text_cols:
             # TODO: Get the text data from the DataFrame as a NumPy array
-            self.text_data = None
+            self.text_data = df[text_cols].to_numpy() # Extract text data as a NumPy array
         else:
             # Else, set text data to None
             self.text_data = None
             
         if image_cols:
             # TODO: Get the image data from the DataFrame as a NumPy array
-            self.image_data = None
+            self.image_data = df[image_cols].to_numpy() # Extract image data as a NumPy array
         else:
             # Else, set image data to None
             self.image_data = None
@@ -94,7 +94,7 @@ class MultimodalDataset(Sequence):
             raise ValueError("At least one of text_cols or image_cols must be provided.")
         
         # TODO: Get the labels from the DataFrame and encode them
-        self.labels = None
+        self.labels = df[label_col[0]].values 
 
         # Use provided encoder or fit a new one
         if encoder is None:
@@ -198,15 +198,18 @@ def create_early_fusion_model(text_input_size, image_input_size, output_size, hi
     
     if text_input_size is not None:
         # TODO: Define text input layer for only text data
-        text_input = None
+        text_input = tf.keras.Input(shape=(text_input_size,), name='text')
+
+       
     if image_input_size is not None:
         # TODO: Define image input layer for only image data
-        image_input = None
+        image_input = tf.keras.Input(shape=(image_input_size,), name='image')
     
     
     if text_input_size is not None and image_input_size is not None:
         # TODO: Concatenate text and image inputs if both are provided
-        x = None
+        inputs = [text_input, image_input]
+        x = Concatenate()(inputs)
     elif text_input_size is not None:
         x = text_input
     elif image_input_size is not None:
@@ -215,29 +218,30 @@ def create_early_fusion_model(text_input_size, image_input_size, output_size, hi
     if isinstance(hidden, int):
         # TODO: Add a single dense layer 
         # Optionally play with activation, dropout and normalization
-        x = None
-        x = None
+        x = Dense(hidden, activation='relu')(x)
+        x = BatchNormalization()(x)
+        x = Dropout(p)(x)
     elif isinstance(hidden, list):
         for h in hidden:
             # TODO: Add multiple dense layers based on the hidden list
             # Optionally play with activation, dropout and normalization
-            x = None
-            x = None
-            x = None
+            x = Dense(h, activation='relu')(x)
+            x = BatchNormalization()(x)
+            x = Dropout(p)(x)
 
     # TODO: Add the output layer with softmax activation
-    output = None
+    output = Dense(10, activation='softmax')(x)
 
     # Create the model
     if text_input_size is not None and image_input_size is not None:
         # TODO: Define the model with both text and image inputs
-        model = None
+        model = tf.keras.Model(inputs=[text_input, image_input], outputs=output)
     elif text_input_size is not None:
         # TODO: Define the model with only text input
-        model = None
+        model = tf.keras.Model(inputs=text_input, outputs=output)
     elif image_input_size is not None:
         # TODO: Define the model with only image input
-        model = None
+        model = tf.keras.Model(inputs=image_input, outputs=output)
     else:
         raise ValueError("At least one of text_input_size and image_input_size must be provided.")
     
@@ -374,7 +378,6 @@ def train_mlp(train_loader, test_loader, text_input_size, image_input_size, outp
         class_indices = np.argmax(train_loader.labels, axis=1)
         # TODO: Compute class weights using the training labels
         # You should use the `compute_class_weight` function from scikit-learn.
-        class_weights = None
         class_weights = {i: weight for i, weight in enumerate(class_weights)}
 
     # TODO: Choose the loss function for multi-class classification

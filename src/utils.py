@@ -5,7 +5,7 @@ from PIL import Image
 import requests
 from io import BytesIO
 from sklearn.model_selection import train_test_split
-import tqdm
+from tqdm import tqdm
 
 import warnings
 # Suppress all warnings
@@ -94,7 +94,7 @@ def preprocess_data(text_data, image_data, text_id="image_id", image_id="ImageNa
     text_data = text_data.dropna(subset=[text_id])
 
     text_data[text_id] = text_data[text_id].apply(lambda x: x.split('/')[-1])
-    tqdm.panda()
+    tqdm.pandas(desc="Processing...")
     # Merge dataframes using image_id
     df = pd.merge(text_data, image_data, left_on=text_id, right_on=image_id)
 

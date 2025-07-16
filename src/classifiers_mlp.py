@@ -94,7 +94,7 @@ class MultimodalDataset(Sequence):
             raise ValueError("At least one of text_cols or image_cols must be provided.")
         
         # TODO: Get the labels from the DataFrame and encode them
-        self.labels = df[label_col[0]].values 
+        self.labels = df[label_col].values
 
         # Use provided encoder or fit a new one
         if encoder is None:
@@ -163,7 +163,7 @@ class MultimodalDataset(Sequence):
             np.random.shuffle(self.indices)
 
 # Early Fusion Model
-def create_early_fusion_model(text_input_size, image_input_size, output_size, hidden=[128], p=0.2):
+def create_early_fusion_model(text_input_size, image_input_size, output_size, hidden=[512,256,128], p=0.2):
     """
     Creates a multimodal early fusion model combining text and image inputs. The model concatenates the text and 
     image features, passes them through fully connected layers with optional dropout and batch normalization, 
@@ -199,8 +199,6 @@ def create_early_fusion_model(text_input_size, image_input_size, output_size, hi
     if text_input_size is not None:
         # TODO: Define text input layer for only text data
         text_input = tf.keras.Input(shape=(text_input_size,), name='text')
-
-       
     if image_input_size is not None:
         # TODO: Define image input layer for only image data
         image_input = tf.keras.Input(shape=(image_input_size,), name='image')
@@ -230,7 +228,7 @@ def create_early_fusion_model(text_input_size, image_input_size, output_size, hi
             x = Dropout(p)(x)
 
     # TODO: Add the output layer with softmax activation
-    output = Dense(10, activation='softmax')(x)
+    output = Dense(output_size, activation='softmax')(x)
 
     # Create the model
     if text_input_size is not None and image_input_size is not None:
@@ -364,45 +362,69 @@ def train_mlp(train_loader, test_loader, text_input_size, image_input_size, outp
         - `train_loader` and `test_loader` should be instances of `MultimodalDataset` or compatible Keras data loaders.
         - If the dataset is imbalanced, setting `set_weights=True` is recommended to ensure better model performance on minority classes.
     """
-    
+    #print(f'p:{p} - patience {patience} - ouput_size: {output_size} - lr: {lr}')
+
     if seed is not None:
         np.random.seed(seed)
         tf.random.set_seed(seed)
       
     # Create an instance of the early fusion model  
     # TODO: Create an early fusion model using the provided input sizes and output size
-    model = None
+    model = create_early_fusion_model(
+        text_input_size=text_input_size,
+        image_input_size=image_input_size,
+        output_size=output_size,
+        p=p
+    )
 
     # Compute class weights for imbalanced datasets
     if set_weights:
         class_indices = np.argmax(train_loader.labels, axis=1)
         # TODO: Compute class weights using the training labels
         # You should use the `compute_class_weight` function from scikit-learn.
+        class_weights = compute_class_weight(
+            class_weight='balanced',
+            classes=np.unique(class_indices),
+            y=class_indices
+        )
         class_weights = {i: weight for i, weight in enumerate(class_weights)}
 
     # TODO: Choose the loss function for multi-class classification
-    loss = None
+    loss = CategoricalCrossentropy()
 
     # Choose the optimizer
     if adam:
         # TODO: Use the Adam optimizer with the specified learning rate
-        optimizer = None
+        optimizer = Adam(learning_rate=lr)
     else:
         # TODO: Use the SGD optimizer with the specified learning rate
-        optimizer = None
+        optimizer = SGD(learning_rate=lr, momentum=0.9)
 
     # TODO: Compile the model with the chosen optimizer and loss function
-    
+    model.compile(optimizer='adam', loss=loss, metrics=['accuracy'])
+
 
     # TODO: Define an early stopping callback with the specified patience
-    early_stopping = None
+    early_stopping = EarlyStopping(
+        monitor='val_loss',
+        patience=patience,
+        restore_best_weights=True,
+        verbose=1
+    )
 
     # TODO: Train the model using the training data and validation data
     # Use the class weights if set_weights
     # Use the early stopping callback
     # Use the number of epochs specified
     if train_model:
-        history = None
+        history = model.fit(
+            train_loader,
+            validation_data=test_loader,
+            epochs=num_epochs,
+            class_weight=class_weights if set_weights else None,
+            callbacks=[early_stopping],
+            verbose=1
+        )
 
     if test_mlp_model:
         # Test the model on the test set
@@ -422,7 +444,7 @@ def train_mlp(train_loader, test_loader, text_input_size, image_input_size, outp
         y_true, y_pred, y_prob = np.array(y_true), np.array(y_pred), np.array(y_prob)
 
         test_accuracy = accuracy_score(np.argmax(y_true, axis=1), y_pred)
-        f1 = f1_score(np.argmax(y_true, axis=1), y_pred, average='macro')
+        f1 = f1_score(np.argmax(y_true, axis=1), y_pred, average='weighted')
         
         auc_scores = roc_auc_score(y_true, y_prob, average='macro', multi_class='ovr')
         macro_auc = auc_scores
@@ -452,5 +474,6 @@ def train_mlp(train_loader, test_loader, text_input_size, image_input_size, outp
             results.to_csv(f"results/{model_type}_results.csv", index=False)
     else:
         test_accuracy, f1, macro_auc = None, None, None
-        
+    #print(f"Test Accuracy: {test_accuracy:.4f}, F1 Score: {f1:.4f}, Macro AUC: {macro_auc:.4f}")
+
     return model, test_accuracy, f1, macro_auc
